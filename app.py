@@ -142,7 +142,23 @@ def search():
         raw_chain = get_ownership_chain(company_number)
         ownership_chain = flatten_chain(raw_chain)
 
-    max_depth = max((n['depth'] for n in ownership_chain), default=1) if ownership_chain else 1
+    # Calculate layers of ownership:
+    # 0 = direct PSC is a natural person
+    # 1 = one corporate layer (company A owned by company B owned by person)
+    # 2 = two corporate layers, etc.
+    # Logic: count the maximum depth of corporate nodes in the chain, then subtract 1
+    # because depth 1 is the direct PSC of the searched company itself
+    if not ownership_chain:
+        # No corporate PSCs - individual owned
+        max_depth = 0
+    else:
+        corp_nodes = [n for n in ownership_chain if n.get('type') == 'Corporate']
+        if not corp_nodes:
+            max_depth = 0
+        else:
+            # max corporate depth minus 1 gives the number of intermediate layers
+            max_corp_depth = max(n['depth'] for n in corp_nodes)
+            max_depth = max_corp_depth - 1
 
     return jsonify({
         'input_name': name,
