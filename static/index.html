@@ -200,12 +200,12 @@ async function doSingleSearch(){
   btn.disabled=false;
 }
 
-function renderOwnershipChain(chain){
+function renderOwnershipChain(chain,ownershipDepth){
   if(!chain||chain.length===0)return '';
   const layers={};
   chain.forEach(n=>{if(!layers[n.depth])layers[n.depth]=[];layers[n.depth].push(n.type);});
   const maxDepth=Math.max(...Object.keys(layers).map(Number));
-  let html='<div class="ownership-chain"><label>Ownership Chain &mdash; '+maxDepth+' layer'+(maxDepth!==1?'s':'')+' deep</label><div class="chain-visual">';
+  let html='<div class="ownership-chain"><label>Layers of Ownership: '+ownershipDepth+' corporate layer'+(ownershipDepth!==1?'s':'')+' between this company and ultimate owner</label><div class="chain-visual">';
   html+='<div class="chain-row"><div class="chain-node chain-node-searched">&#127970; This Company</div></div>';
   for(let d=1;d<=maxDepth;d++){
     const types=layers[d]||[];
@@ -222,9 +222,9 @@ function renderOwnershipChain(chain){
 }
 
 function renderSingleResult(data){
-  const{company,classification,pscs,ownership_chain}=data;
+  const{company,classification,pscs,ownership_chain,ownership_depth}=data;
   const pscItems=pscs.map(p=>'<div class="psc-item"><div class="psc-dot '+(p.is_corporate?'psc-dot-corporate':'psc-dot-individual')+'"></div><span>'+p.name+'</span><span style="margin-left:auto;font-size:0.65rem;color:var(--text-dim)">'+(p.is_corporate?'Corporate':'Individual')+'</span></div>').join('');
-  const chainHtml=ownership_chain&&ownership_chain.length>0?renderOwnershipChain(ownership_chain):'';
+  const chainHtml=ownership_chain&&ownership_chain.length>0?renderOwnershipChain(ownership_chain,data.ownership_depth||0):'';
   return '<div class="result-card"><div class="result-header"><div><div class="result-company-name">'+company.title+'</div><div class="result-company-number">No. '+company.company_number+' &nbsp;&middot;&nbsp; <a class="ch-link" href="https://find-and-update.company-information.service.gov.uk/company/'+company.company_number+'/persons-with-significant-control" target="_blank">View on Companies House</a></div></div><div class="'+badgeClass(classification)+'">'+classification+'</div></div><div class="result-body"><div class="result-grid"><div class="result-field"><label>Status</label><div>'+(company.company_status||'&mdash;')+'</div></div><div class="result-field"><label>Active PSCs</label><div>'+data.psc_count+'</div></div><div class="result-field"><label>Company Type</label><div>'+(company.company_type||'&mdash;')+'</div></div><div class="result-field"><label>Location</label><div>'+(company.address?(company.address.locality||company.address.postal_code||'&mdash;'):'&mdash;')+'</div></div></div>'+(pscs.length?'<div class="psc-list"><label>Active Persons with Significant Control</label>'+pscItems+'</div>':'<div style="color:var(--text-dim);font-size:0.81rem;padding:11px 13px;background:var(--surface2);border-radius:4px;">No active PSCs registered</div>')+chainHtml+'</div></div>';
 }
 
@@ -288,13 +288,13 @@ function renderBatchResults(){
   const counts={};results.forEach(r=>{counts[r.classification]=(counts[r.classification]||0)+1;});
   const filtered=currentFilter==='all'?results:results.filter(r=>r.classification===currentFilter);
   const rows=filtered.map(r=>'<tr><td style="max-width:200px;font-weight:500">'+r.inputName+'</td><td style="color:var(--text-dim);font-size:0.72rem">'+( r.matchedName||'&mdash;')+'</td><td style="font-size:0.72rem">'+(r.companyNumber?'<a class="ch-link" href="https://find-and-update.company-information.service.gov.uk/company/'+r.companyNumber+'/persons-with-significant-control" target="_blank">'+r.companyNumber+'</a>':'&mdash;')+'</td><td><span class="'+badgeClass(r.classification)+'">'+r.classification+'</span></td><td style="color:var(--text-dim)">'+(r.pscCount||'&mdash;')+'</td><td style="color:var(--text-dim);text-align:center">'+(r.ownershipDepth||'&mdash;')+'</td></tr>').join('');
-  document.getElementById('batchResult').innerHTML='<div class="summary-cards"><div class="summary-card total"><div class="number">'+results.length+'</div><div class="label">Total</div></div><div class="summary-card corporate"><div class="number">'+(counts.Corporate||0)+'</div><div class="label">Corporate</div></div><div class="summary-card individual"><div class="number">'+(counts.Individual||0)+'</div><div class="label">Individual</div></div><div class="summary-card mixed"><div class="number">'+(counts.Mixed||0)+'</div><div class="label">Mixed</div></div><div class="summary-card notfound"><div class="number">'+((counts['Not Found']||0)+(counts.Error||0)+(counts.None||0))+'</div><div class="label">Other</div></div></div><div class="filter-row"><span style="font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;margin-right:4px;">Filter:</span>'+['all','Corporate','Individual','Mixed','None','Not Found'].map(f=>'<button class="filter-btn '+(currentFilter===f?'active':'')+'" onclick="setFilter(\''+f+'\')">'+( f==='all'?'All':f)+'</button>').join('')+'</div><div class="export-row"><button class="btn btn-secondary" onclick="exportCSV()" style="font-size:0.65rem;padding:8px 16px;">Export CSV</button></div><div class="results-table-wrap"><table><thead><tr><th>Input Name</th><th>Matched Name</th><th>CH Number</th><th>PSC Type</th><th>PSC Count</th><th>Ownership Depth</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  document.getElementById('batchResult').innerHTML='<div class="summary-cards"><div class="summary-card total"><div class="number">'+results.length+'</div><div class="label">Total</div></div><div class="summary-card corporate"><div class="number">'+(counts.Corporate||0)+'</div><div class="label">Corporate</div></div><div class="summary-card individual"><div class="number">'+(counts.Individual||0)+'</div><div class="label">Individual</div></div><div class="summary-card mixed"><div class="number">'+(counts.Mixed||0)+'</div><div class="label">Mixed</div></div><div class="summary-card notfound"><div class="number">'+((counts['Not Found']||0)+(counts.Error||0)+(counts.None||0))+'</div><div class="label">Other</div></div></div><div class="filter-row"><span style="font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;margin-right:4px;">Filter:</span>'+['all','Corporate','Individual','Mixed','None','Not Found'].map(f=>'<button class="filter-btn '+(currentFilter===f?'active':'')+'" onclick="setFilter(\''+f+'\')">'+( f==='all'?'All':f)+'</button>').join('')+'</div><div class="export-row"><button class="btn btn-secondary" onclick="exportCSV()" style="font-size:0.65rem;padding:8px 16px;">Export CSV</button></div><div class="results-table-wrap"><table><thead><tr><th>Input Name</th><th>Matched Name</th><th>CH Number</th><th>PSC Type</th><th>PSC Count</th><th>Layers of Ownership</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 function setFilter(f){currentFilter=f;renderBatchResults();}
 
 function exportCSV(){
-  const headers=['Input Name','Matched Name','Company Number','Status','PSC Classification','PSC Count','PSC Names','Ownership Depth'];
+  const headers=['Input Name','Matched Name','Company Number','Status','PSC Classification','PSC Count','PSC Names','Layers of Ownership'];
   const rows=allBatchResults.map(r=>[r.inputName,r.matchedName,r.companyNumber,r.status,r.classification,r.pscCount,r.pscNames,r.ownershipDepth||''].map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(','));
   const csv=[headers.join(','),...rows].join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
