@@ -14,7 +14,7 @@ CORPORATE_KINDS = {
     'super-secure-person-with-significant-control',
 }
 INDIVIDUAL_KINDS = {'individual-person-with-significant-control'}
-MAX_DEPTH = 6  # prevent infinite loops
+MAX_DEPTH = 6
 
 
 def ch_get(path):
@@ -29,12 +29,11 @@ def ch_get(path):
 
 
 def get_active_pscs(company_number):
-    """Fetch PSCs for a company, filtering out ceased ones."""
-    psc_data = ch_get(f'/company/{company_number}/persons-with-significant-control')
-    if not psc_data:
+    """Fetch PSCs, stripping out any that have ceased."""
+    data = ch_get(f'/company/{company_number}/persons-with-significant-control')
+    if not data:
         return []
-    all_pscs = psc_data.get('items', [])
-    # Strip ceased PSCs
+    all_pscs = data.get('items', [])
     return [p for p in all_pscs if not p.get('ceased', False) and not p.get('ceased_on')]
 
 
@@ -52,56 +51,47 @@ def classify_pscs(pscs):
     return 'Unknown'
 
 
-def get_ownership_chain(company_number, visited=None, depth=0):
+def count_layers(company_number, visited=None, current_depth=0):
     """
-    Recursively walk up the ownership chain.
-    Returns a list of layer labels e.g. ['Corporate', 'Corporate', 'Individual']
+    Recursively count corporate layers between the searched company and a natural person.
+    - 0 = PSC is a natural person (no corporate layers)
+    - 1 = PSC is a company whose PSC is a natural person
+    - 2 = two companies deep, etc.
     """
     if visited is None:
         visited = set()
-    if depth >= MAX_DEPTH or company_number in visited:
-        return ['Max depth reached']
+    if company_number in visited or current_depth >= MAX_DEPTH:
+        return current_depth
 
     visited.add(company_number)
     pscs = get_active_pscs(company_number)
 
     if not pscs:
-        return ['None']
+        return current_depth
 
-    chain = []
-    for psc in pscs:
-        kind = psc.get('kind', '')
-        if kind in CORPORATE_KINDS:
-            # Try to find the company number of the parent
-            identification = psc.get('identification', {})
-            parent_number = identification.get('registration_number', '')
-            parent_country = identification.get('country_registered', '').lower()
+    # If any PSC is an individual, we've reached the end of the chain
+    has_individual = any(p.get('kind') in INDIVIDUAL_KINDS for p in pscs)
+    has_corporate = any(p.get('kind') in CORPORATE_KINDS for p in pscs)
 
-            # Only follow chain for UK companies
-            if parent_number and ('uk' in parent_country or 'england' in parent_country
-                                  or 'wales' in parent_country or 'scotland' in parent_country
-                                  or parent_country == ''):
-                sub_chain = get_ownership_chain(parent_number, visited.copy(), depth + 1)
-                chain.append({'layer': depth + 1, 'type': 'Corporate', 'chain': sub_chain})
-            else:
-                chain.append({'layer': depth + 1, 'type': 'Corporate', 'chain': ['Unknown — overseas or no reg number']})
-        elif kind in INDIVIDUAL_KINDS:
-            chain.append({'layer': depth + 1, 'type': 'Individual', 'chain': []})
+    if has_individual and not has_corporate:
+        # Owned by a person - return current depth
+        return current_depth
 
-    return chain
+    if has_corporate:
+        # Follow each corporate PSC and take the maximum depth found
+        max_found = current_depth
+        for p in pscs:
+            if p.get('kind') in CORPORATE_KINDS:
+                reg_number = p.get('identification', {}).get('registration_number', '').strip()
+                if reg_number:
+                    depth = count_layers(reg_number, visited.copy(), current_depth + 1)
+                    max_found = max(max_found, depth)
+                else:
+                    # Can't follow further (overseas or no reg number) - count this as a layer
+                    max_found = max(max_found, current_depth + 1)
+        return max_found
 
-
-def flatten_chain(chain, depth=1):
-    """Convert nested chain into a flat list of (depth, type) tuples."""
-    result = []
-    for node in chain:
-        if isinstance(node, dict):
-            result.append({'depth': depth, 'type': node['type']})
-            if node.get('chain'):
-                result.extend(flatten_chain(node['chain'], depth + 1))
-        else:
-            result.append({'depth': depth, 'type': node})
-    return result
+    return current_depth
 
 
 @app.route('/')
@@ -123,7 +113,6 @@ def search():
     company = next((i for i in items if i.get('company_status') == 'active'), items[0])
     company_number = company['company_number']
 
-    # Get active PSCs only (ceased stripped out)
     pscs = get_active_pscs(company_number)
     classification = classify_pscs(pscs)
 
@@ -136,29 +125,8 @@ def search():
             'nature_of_control': p.get('natures_of_control', []),
         })
 
-    # Build ownership chain for corporate PSCs
-    ownership_chain = []
-    if any(p.get('kind') in CORPORATE_KINDS for p in pscs):
-        raw_chain = get_ownership_chain(company_number)
-        ownership_chain = flatten_chain(raw_chain)
-
-    # Calculate layers of ownership:
-    # 0 = direct PSC is a natural person
-    # 1 = one corporate layer (company A owned by company B owned by person)
-    # 2 = two corporate layers, etc.
-    # Logic: count the maximum depth of corporate nodes in the chain, then subtract 1
-    # because depth 1 is the direct PSC of the searched company itself
-    if not ownership_chain:
-        # No corporate PSCs - individual owned
-        max_depth = 0
-    else:
-        corp_nodes = [n for n in ownership_chain if n.get('type') == 'Corporate']
-        if not corp_nodes:
-            max_depth = 0
-        else:
-            # max corporate depth minus 1 gives the number of intermediate layers
-            max_corp_depth = max(n['depth'] for n in corp_nodes)
-            max_depth = max_corp_depth - 1
+    # Count layers of ownership
+    layers = count_layers(company_number)
 
     return jsonify({
         'input_name': name,
@@ -172,8 +140,7 @@ def search():
         'classification': classification,
         'psc_count': len(pscs),
         'pscs': psc_list,
-        'ownership_chain': ownership_chain,
-        'ownership_depth': max_depth,
+        'layers': layers,
     })
 
 
