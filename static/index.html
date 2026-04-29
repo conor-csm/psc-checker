@@ -3,438 +3,125 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PSC Checker — Ownership Intelligence</title>
+<title>PSC Checker</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&display=swap');
-
   :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface2: #1a1a26;
-    --border: #2a2a3d;
-    --accent: #c8a96e;
-    --accent2: #7c6fe0;
-    --corporate: #e05c5c;
-    --individual: #5ce09a;
-    --mixed: #e0a85c;
-    --none: #888;
-    --text: #e8e8f0;
-    --text-dim: #888899;
+    --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3d;
+    --accent:#c8a96e;--accent2:#7c6fe0;--corporate:#e05c5c;--individual:#5ce09a;
+    --mixed:#e0a85c;--none:#888;--text:#e8e8f0;--text-dim:#888899;
   }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(200,169,110,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(200,169,110,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .container{max-width:900px;margin:0 auto;padding:0 24px;position:relative;z-index:1;}
+  header{padding:48px 0 40px;border-bottom:1px solid var(--border);margin-bottom:48px;}
+  .header-inner{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+  .logo-area h1{font-family:'Playfair Display',serif;font-size:2.6rem;font-weight:900;letter-spacing:-0.02em;line-height:1;}
+  .logo-area h1 span{color:var(--accent);}
+  .logo-area p{margin-top:8px;font-size:0.72rem;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .tabs{display:flex;gap:0;margin-bottom:32px;border-bottom:1px solid var(--border);}
+  .tab{padding:12px 24px;font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.2s;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .search-row{display:flex;gap:12px;margin-bottom:32px;}
+  .search-input{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.9rem;padding:14px 18px;border-radius:4px;outline:none;transition:border-color 0.2s;}
+  .search-input:focus{border-color:var(--accent);}
+  .search-input::placeholder{color:var(--text-dim);}
+  .btn{background:var(--accent);color:#0a0a0f;border:none;font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:500;padding:14px 24px;border-radius:4px;cursor:pointer;transition:opacity 0.2s,transform 0.1s;white-space:nowrap;}
+  .btn:hover{opacity:0.85;}
+  .btn:active{transform:scale(0.98);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;animation:fadeUp 0.3s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  .result-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .result-company-name{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;}
+  .result-company-number{font-size:0.7rem;color:var(--text-dim);margin-top:4px;}
+  .badge{padding:6px 16px;border-radius:2px;font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;font-weight:500;}
+  .badge-corporate{background:rgba(224,92,92,0.15);color:var(--corporate);border:1px solid rgba(224,92,92,0.3);}
+  .badge-individual{background:rgba(92,224,154,0.15);color:var(--individual);border:1px solid rgba(92,224,154,0.3);}
+  .badge-mixed{background:rgba(224,168,92,0.15);color:var(--mixed);border:1px solid rgba(224,168,92,0.3);}
+  .badge-none{background:rgba(136,136,136,0.15);color:var(--none);border:1px solid rgba(136,136,136,0.3);}
+  .badge-unknown{background:rgba(124,111,224,0.15);color:var(--accent2);border:1px solid rgba(124,111,224,0.3);}
+  .badge-notfound{background:rgba(136,136,136,0.15);color:var(--none);border:1px solid rgba(136,136,136,0.3);}
+  .badge-error{background:rgba(224,92,92,0.15);color:var(--corporate);border:1px solid rgba(224,92,92,0.3);}
+  .result-body{padding:20px 24px;}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+  .result-field label{font-size:0.62rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:4px;}
+  .psc-list{margin-top:16px;}
+  .psc-list label{font-size:0.62rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:10px;}
+  .psc-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border-radius:4px;margin-bottom:6px;font-size:0.82rem;}
+  .psc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .psc-dot-corporate{background:var(--corporate);}
+  .psc-dot-individual{background:var(--individual);}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Ownership chain styles */
+  .ownership-chain{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+  .ownership-chain > label{font-size:0.62rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:14px;}
+  .chain-visual{display:flex;flex-direction:column;align-items:flex-start;gap:0;}
+  .chain-row{display:flex;align-items:center;gap:10px;}
+  .chain-arrow{font-size:0.8rem;color:var(--text-dim);padding:2px 0 2px 18px;}
+  .chain-node{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:4px;font-size:0.8rem;border:1px solid var(--border);}
+  .chain-node-searched{background:var(--surface2);color:var(--text);}
+  .chain-node-corporate{background:rgba(224,92,92,0.08);border-color:rgba(224,92,92,0.25);color:var(--corporate);}
+  .chain-node-individual{background:rgba(92,224,154,0.08);border-color:rgba(92,224,154,0.25);color:var(--individual);}
+  .chain-node-unknown{background:rgba(136,136,136,0.08);border-color:rgba(136,136,136,0.25);color:var(--none);}
+  .chain-depth-label{font-size:0.62rem;color:var(--text-dim);letter-spacing:0.06em;}
+  .chain-nodes-row{display:flex;gap:8px;flex-wrap:wrap;}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(200,169,110,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(200,169,110,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .container {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 24px;
-    position: relative;
-    z-index: 1;
-  }
-
-  header {
-    padding: 48px 0 40px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 48px;
-  }
-
-  .logo-area h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: 2.6rem;
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    line-height: 1;
-  }
-
-  .logo-area h1 span { color: var(--accent); }
-
-  .logo-area p {
-    margin-top: 8px;
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .tabs {
-    display: flex;
-    margin-bottom: 32px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .tab {
-    padding: 12px 24px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    background: none;
-    border: none;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: all 0.2s;
-  }
-
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-  .panel { display: none; }
-  .panel.active { display: block; }
-
-  .search-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 32px;
-  }
-
-  .search-input {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.9rem;
-    padding: 14px 18px;
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .search-input:focus { border-color: var(--accent); }
-  .search-input::placeholder { color: var(--text-dim); }
-
-  .btn {
-    background: var(--accent);
-    color: #0a0a0f;
-    border: none;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-weight: 500;
-    padding: 14px 24px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    white-space: nowrap;
-  }
-
-  .btn:hover { opacity: 0.85; }
-  .btn:active { transform: scale(0.98); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-secondary {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-
-  .result-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
-    animation: fadeUp 0.3s ease;
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .result-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .result-company-name {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.4rem;
-    font-weight: 700;
-  }
-
-  .result-company-number {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    margin-top: 4px;
-  }
-
-  .badge {
-    padding: 6px 16px;
-    border-radius: 2px;
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 500;
-  }
-
-  .badge-corporate { background: rgba(224,92,92,0.15); color: var(--corporate); border: 1px solid rgba(224,92,92,0.3); }
-  .badge-individual { background: rgba(92,224,154,0.15); color: var(--individual); border: 1px solid rgba(92,224,154,0.3); }
-  .badge-mixed { background: rgba(224,168,92,0.15); color: var(--mixed); border: 1px solid rgba(224,168,92,0.3); }
-  .badge-none { background: rgba(136,136,136,0.15); color: var(--none); border: 1px solid rgba(136,136,136,0.3); }
-  .badge-unknown { background: rgba(124,111,224,0.15); color: var(--accent2); border: 1px solid rgba(124,111,224,0.3); }
-
-  .result-body { padding: 20px 24px; }
-
-  .result-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  .result-field label {
-    font-size: 0.62rem;
-    color: var(--text-dim);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  .psc-list label {
-    font-size: 0.62rem;
-    color: var(--text-dim);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 10px;
-  }
-
-  .psc-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: var(--surface2);
-    border-radius: 4px;
-    margin-bottom: 6px;
-    font-size: 0.82rem;
-  }
-
-  .psc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .psc-dot-corporate { background: var(--corporate); }
-  .psc-dot-individual { background: var(--individual); }
-
-  .upload-zone {
-    border: 2px dashed var(--border);
-    border-radius: 6px;
-    padding: 48px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-bottom: 24px;
-    position: relative;
-  }
-
-  .upload-zone:hover, .upload-zone.dragover {
-    border-color: var(--accent);
-    background: rgba(200,169,110,0.04);
-  }
-
-  .upload-zone input[type=file] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-  }
-
-  .upload-icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.5; }
-  .upload-zone p { color: var(--text-dim); font-size: 0.8rem; }
-  .upload-zone p strong { color: var(--accent); font-weight: 400; }
-  .file-selected { color: var(--individual) !important; margin-top: 8px; font-size: 0.75rem !important; }
-
-  .progress-area { margin-bottom: 24px; display: none; }
-
-  .progress-bar-track {
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-bottom: 10px;
-    overflow: hidden;
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 2px;
-    transition: width 0.3s ease;
-    width: 0%;
-  }
-
-  .progress-text {
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-
-  .summary-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 16px;
-    text-align: center;
-  }
-
-  .summary-card .number {
-    font-family: 'Playfair Display', serif;
-    font-size: 2.2rem;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 6px;
-  }
-
-  .summary-card .label {
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-  }
-
-  .summary-card.corporate .number { color: var(--corporate); }
-  .summary-card.individual .number { color: var(--individual); }
-  .summary-card.mixed .number { color: var(--mixed); }
-  .summary-card.notfound .number { color: var(--text-dim); }
-  .summary-card.total .number { color: var(--accent); }
-
-  .results-table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 20px;
-  }
-
-  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-
-  thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
-
-  th {
-    padding: 10px 14px;
-    text-align: left;
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    font-weight: 400;
-    white-space: nowrap;
-  }
-
-  td {
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(42,42,61,0.5);
-    vertical-align: middle;
-  }
-
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
-
-  .filter-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .filter-btn {
-    padding: 5px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border-radius: 2px;
-    border: 1px solid var(--border);
-    background: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .filter-btn:hover { color: var(--text); border-color: var(--text-dim); }
-  .filter-btn.active { background: var(--accent); color: #0a0a0f; border-color: var(--accent); }
-
-  .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(200,169,110,0.3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    vertical-align: middle;
-    margin-right: 8px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .status-msg { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 16px; min-height: 20px; }
-  .error-msg { color: var(--corporate); }
-
-  .ch-link {
-    color: var(--accent);
-    text-decoration: none;
-    font-size: 0.7rem;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-  }
-  .ch-link:hover { opacity: 1; }
-
-  .export-row { display: flex; justify-content: flex-end; margin-bottom: 16px; }
-
-  footer {
-    margin-top: 80px;
-    padding: 24px 0;
-    border-top: 1px solid var(--border);
-    text-align: center;
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    letter-spacing: 0.08em;
-  }
+  /* Upload */
+  .upload-zone{border:2px dashed var(--border);border-radius:6px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:24px;position:relative;}
+  .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(200,169,110,0.04);}
+  .upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-icon{font-size:2rem;margin-bottom:12px;opacity:0.5;}
+  .upload-zone p{color:var(--text-dim);font-size:0.8rem;}
+  .upload-zone p strong{color:var(--accent);font-weight:400;}
+  .file-selected{color:var(--individual) !important;margin-top:8px;font-size:0.75rem !important;}
+  .progress-area{margin-bottom:24px;display:none;}
+  .progress-bar-track{height:3px;background:var(--border);border-radius:2px;margin-bottom:10px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s ease;width:0%;}
+  .progress-text{font-size:0.72rem;color:var(--text-dim);display:flex;justify-content:space-between;}
+  .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:28px;}
+  .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;text-align:center;}
+  .summary-card .number{font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;line-height:1;margin-bottom:6px;}
+  .summary-card .label{font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);}
+  .summary-card.corporate .number{color:var(--corporate);}
+  .summary-card.individual .number{color:var(--individual);}
+  .summary-card.mixed .number{color:var(--mixed);}
+  .summary-card.notfound .number{color:var(--text-dim);}
+  .summary-card.total .number{color:var(--accent);}
+  .results-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:20px;}
+  table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+  thead tr{background:var(--surface2);border-bottom:1px solid var(--border);}
+  th{padding:10px 14px;text-align:left;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);font-weight:400;white-space:nowrap;}
+  td{padding:10px 14px;border-bottom:1px solid rgba(42,42,61,0.5);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.02);}
+  .filter-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .filter-btn{padding:5px 12px;font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;transition:all 0.15s;}
+  .filter-btn:hover{color:var(--text);border-color:var(--text-dim);}
+  .filter-btn.active{background:var(--accent);color:#0a0a0f;border-color:var(--accent);}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(200,169,110,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:8px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .status-msg{font-size:0.75rem;color:var(--text-dim);margin-bottom:16px;min-height:20px;}
+  .error-msg{color:var(--corporate);}
+  .ch-link{color:var(--accent);text-decoration:none;font-size:0.7rem;opacity:0.7;transition:opacity 0.2s;}
+  .ch-link:hover{opacity:1;}
+  .export-row{display:flex;justify-content:flex-end;margin-bottom:16px;}
+  footer{margin-top:80px;padding:24px 0;border-top:1px solid var(--border);text-align:center;font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <div class="logo-area">
-      <h1>PSC <span>Checker</span></h1>
-      <p>UK Companies House — Ownership Intelligence</p>
+    <div class="header-inner">
+      <div class="logo-area">
+        <h1>PSC <span>Checker</span></h1>
+        <p>UK Companies House &mdash; Ownership Intelligence</p>
+      </div>
     </div>
   </header>
 
@@ -443,21 +130,19 @@
     <button class="tab" onclick="switchTab('batch')">Batch CSV Upload</button>
   </div>
 
-  <!-- SINGLE PANEL -->
   <div class="panel active" id="panel-single">
     <div class="search-row">
-      <input class="search-input" type="text" id="companySearch" placeholder="Enter company name e.g. Redbrik…" />
+      <input class="search-input" type="text" id="companySearch" placeholder="Enter company name e.g. Redbrik..." />
       <button class="btn" id="searchBtn" onclick="doSingleSearch()">Search</button>
     </div>
     <div class="status-msg" id="singleStatus"></div>
     <div id="singleResult"></div>
   </div>
 
-  <!-- BATCH PANEL -->
   <div class="panel" id="panel-batch">
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="csvFile" accept=".csv" onchange="handleFileSelect(event)" />
-      <div class="upload-icon">📄</div>
+      <div class="upload-icon">&#128196;</div>
       <p>Drop your CSV file here or <strong>click to browse</strong></p>
       <p style="margin-top:6px;font-size:0.7rem;">File must have a column named <strong>name</strong></p>
       <p class="file-selected" id="fileSelectedMsg" style="display:none"></p>
@@ -468,16 +153,13 @@
     </div>
     <div class="progress-area" id="progressArea">
       <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill"></div></div>
-      <div class="progress-text">
-        <span id="progressLabel">Processing…</span>
-        <span id="progressPct">0%</span>
-      </div>
+      <div class="progress-text"><span id="progressLabel">Processing...</span><span id="progressPct">0%</span></div>
     </div>
     <div class="status-msg" id="batchStatus"></div>
     <div id="batchResult"></div>
   </div>
 
-  <footer>Data sourced from Companies House public API &nbsp;·&nbsp; For internal use only</footer>
+  <footer>Data sourced from Companies House public API &nbsp;&middot;&nbsp; For internal use only</footer>
 </div>
 
 <script>
@@ -487,218 +169,136 @@ let currentFilter = 'all';
 let csvCompanies = [];
 
 function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='single')||(i===1&&tab==='batch')));
-  document.getElementById('panel-single').classList.toggle('active', tab==='single');
-  document.getElementById('panel-batch').classList.toggle('active', tab==='batch');
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='single')||(i===1&&tab==='batch')));
+  document.getElementById('panel-single').classList.toggle('active',tab==='single');
+  document.getElementById('panel-batch').classList.toggle('active',tab==='batch');
 }
 
-document.getElementById('companySearch').addEventListener('keydown', e => { if(e.key==='Enter') doSingleSearch(); });
+document.getElementById('companySearch').addEventListener('keydown',e=>{if(e.key==='Enter')doSingleSearch();});
 
-const CORPORATE_KINDS = new Set([
-  'corporate-entity-person-with-significant-control',
-  'legal-person-person-with-significant-control',
-  'super-secure-person-with-significant-control'
-]);
+const CORPORATE_KINDS=new Set(['corporate-entity-person-with-significant-control','legal-person-person-with-significant-control','super-secure-person-with-significant-control']);
 
-function badgeClass(cls) {
-  return 'badge badge-' + cls.toLowerCase().replace(/\s+/g,'');
+function badgeClass(cls){return 'badge badge-'+cls.toLowerCase().replace(/\s+/g,'');}
+
+async function doSingleSearch(){
+  const name=document.getElementById('companySearch').value.trim();
+  if(!name)return;
+  const btn=document.getElementById('searchBtn');
+  const statusEl=document.getElementById('singleStatus');
+  const resultEl=document.getElementById('singleResult');
+  btn.disabled=true;
+  resultEl.innerHTML='';
+  statusEl.innerHTML='<span class="spinner"></span>Searching Companies House...';
+  try{
+    const resp=await fetch('/api/search?q='+encodeURIComponent(name));
+    if(resp.status===404){statusEl.innerHTML='<span class="error-msg">No company found. Try a different search term.</span>';btn.disabled=false;return;}
+    if(!resp.ok)throw new Error('Server error');
+    const data=await resp.json();
+    statusEl.innerHTML='';
+    resultEl.innerHTML=renderSingleResult(data);
+  }catch(e){statusEl.innerHTML='<span class="error-msg">Error: '+e.message+'</span>';}
+  btn.disabled=false;
 }
 
-async function doSingleSearch() {
-  const name = document.getElementById('companySearch').value.trim();
-  if (!name) return;
-  const btn = document.getElementById('searchBtn');
-  const statusEl = document.getElementById('singleStatus');
-  const resultEl = document.getElementById('singleResult');
-  btn.disabled = true;
-  resultEl.innerHTML = '';
-  statusEl.innerHTML = '<span class="spinner"></span>Searching Companies House…';
-
-  try {
-    const resp = await fetch('/api/search?q=' + encodeURIComponent(name));
-    if (resp.status === 404) {
-      statusEl.innerHTML = '<span class="error-msg">No company found. Try a different search term.</span>';
-      btn.disabled = false; return;
-    }
-    if (!resp.ok) throw new Error('Server error');
-    const data = await resp.json();
-    statusEl.innerHTML = '';
-    resultEl.innerHTML = renderSingleResult(data);
-  } catch(e) {
-    statusEl.innerHTML = `<span class="error-msg">Error: ${e.message}</span>`;
+function renderOwnershipChain(chain){
+  if(!chain||chain.length===0)return '';
+  const layers={};
+  chain.forEach(n=>{if(!layers[n.depth])layers[n.depth]=[];layers[n.depth].push(n.type);});
+  const maxDepth=Math.max(...Object.keys(layers).map(Number));
+  let html='<div class="ownership-chain"><label>Ownership Chain &mdash; '+maxDepth+' layer'+(maxDepth!==1?'s':'')+' deep</label><div class="chain-visual">';
+  html+='<div class="chain-row"><div class="chain-node chain-node-searched">&#127970; This Company</div></div>';
+  for(let d=1;d<=maxDepth;d++){
+    const types=layers[d]||[];
+    html+='<div class="chain-arrow">&#8595;</div><div class="chain-row"><div class="chain-nodes-row">';
+    types.forEach(type=>{
+      const cls=type==='Corporate'?'chain-node-corporate':type==='Individual'?'chain-node-individual':'chain-node-unknown';
+      const icon=type==='Corporate'?'&#127970;':type==='Individual'?'&#128100;':'&#10067;';
+      html+='<div class="chain-node '+cls+'">'+icon+' Layer '+d+' &mdash; '+type+'</div>';
+    });
+    html+='</div></div>';
   }
-  btn.disabled = false;
+  html+='</div></div>';
+  return html;
 }
 
-function renderSingleResult(data) {
-  const { company, classification, pscs } = data;
-  const pscItems = pscs.map(p => `
-    <div class="psc-item">
-      <div class="psc-dot ${p.is_corporate ? 'psc-dot-corporate' : 'psc-dot-individual'}"></div>
-      <span>${p.name}</span>
-      <span style="margin-left:auto;font-size:0.65rem;color:var(--text-dim)">${p.is_corporate ? 'Corporate' : 'Individual'}</span>
-    </div>`).join('');
-
-  return `<div class="result-card">
-    <div class="result-header">
-      <div>
-        <div class="result-company-name">${company.title}</div>
-        <div class="result-company-number">
-          No. ${company.company_number} &nbsp;·&nbsp;
-          <a class="ch-link" href="https://find-and-update.company-information.service.gov.uk/company/${company.company_number}/persons-with-significant-control" target="_blank">View on Companies House ↗</a>
-        </div>
-      </div>
-      <div class="${badgeClass(classification)}">${classification}</div>
-    </div>
-    <div class="result-body">
-      <div class="result-grid">
-        <div class="result-field"><label>Status</label><div>${company.company_status || '—'}</div></div>
-        <div class="result-field"><label>PSC Count</label><div>${data.psc_count}</div></div>
-        <div class="result-field"><label>Company Type</label><div>${company.company_type || '—'}</div></div>
-        <div class="result-field"><label>Location</label><div>${company.address ? (company.address.locality || company.address.postal_code || '—') : '—'}</div></div>
-      </div>
-      ${pscs.length ? `<div class="psc-list"><label>Persons with Significant Control</label>${pscItems}</div>` : '<div style="color:var(--text-dim);font-size:0.8rem;margin-top:8px;">No PSCs registered</div>'}
-    </div>
-  </div>`;
+function renderSingleResult(data){
+  const{company,classification,pscs,ownership_chain}=data;
+  const pscItems=pscs.map(p=>'<div class="psc-item"><div class="psc-dot '+(p.is_corporate?'psc-dot-corporate':'psc-dot-individual')+'"></div><span>'+p.name+'</span><span style="margin-left:auto;font-size:0.65rem;color:var(--text-dim)">'+(p.is_corporate?'Corporate':'Individual')+'</span></div>').join('');
+  const chainHtml=ownership_chain&&ownership_chain.length>0?renderOwnershipChain(ownership_chain):'';
+  return '<div class="result-card"><div class="result-header"><div><div class="result-company-name">'+company.title+'</div><div class="result-company-number">No. '+company.company_number+' &nbsp;&middot;&nbsp; <a class="ch-link" href="https://find-and-update.company-information.service.gov.uk/company/'+company.company_number+'/persons-with-significant-control" target="_blank">View on Companies House</a></div></div><div class="'+badgeClass(classification)+'">'+classification+'</div></div><div class="result-body"><div class="result-grid"><div class="result-field"><label>Status</label><div>'+(company.company_status||'&mdash;')+'</div></div><div class="result-field"><label>Active PSCs</label><div>'+data.psc_count+'</div></div><div class="result-field"><label>Company Type</label><div>'+(company.company_type||'&mdash;')+'</div></div><div class="result-field"><label>Location</label><div>'+(company.address?(company.address.locality||company.address.postal_code||'&mdash;'):'&mdash;')+'</div></div></div>'+(pscs.length?'<div class="psc-list"><label>Active Persons with Significant Control</label>'+pscItems+'</div>':'<div style="color:var(--text-dim);font-size:0.81rem;padding:11px 13px;background:var(--surface2);border-radius:4px;">No active PSCs registered</div>')+chainHtml+'</div></div>';
 }
 
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const lines = ev.target.result.split('\n').map(l => l.trim()).filter(Boolean);
-    if (!lines.length) return;
-    const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
-    const nameIdx = header.indexOf('name');
-    if (nameIdx === -1) { alert('CSV must have a "name" column.'); return; }
-    csvCompanies = lines.slice(1).map(l => {
-      const cols = l.split(',');
-      return (cols[nameIdx] || '').replace(/"/g,'').trim();
-    }).filter(Boolean);
-    document.getElementById('fileSelectedMsg').textContent = `✓ ${csvCompanies.length} companies loaded`;
-    document.getElementById('fileSelectedMsg').style.display = 'block';
-    document.getElementById('runBatchBtn').disabled = false;
+function handleFileSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const lines=ev.target.result.split('\n').map(l=>l.trim()).filter(Boolean);
+    if(!lines.length)return;
+    const header=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/"/g,''));
+    const nameIdx=header.indexOf('name');
+    if(nameIdx===-1){alert('CSV must have a "name" column.');return;}
+    csvCompanies=lines.slice(1).map(l=>{const cols=l.split(',');return(cols[nameIdx]||'').replace(/"/g,'').trim();}).filter(Boolean);
+    document.getElementById('fileSelectedMsg').textContent='&#10003; '+csvCompanies.length+' companies loaded';
+    document.getElementById('fileSelectedMsg').style.display='block';
+    document.getElementById('runBatchBtn').disabled=false;
   };
   reader.readAsText(file);
 }
 
-const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-zone.addEventListener('drop', e => {
-  e.preventDefault(); zone.classList.remove('dragover');
-  const file = e.dataTransfer.files[0];
-  if (file) handleFileSelect({ target: { files: [file] } });
-});
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');const file=e.dataTransfer.files[0];if(file)handleFileSelect({target:{files:[file]}});});
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
-async function doBatchSearch() {
-  if (!csvCompanies.length) return;
-  stopRequested = false;
-  allBatchResults = [];
-  currentFilter = 'all';
-  document.getElementById('runBatchBtn').disabled = true;
-  document.getElementById('stopBtn').style.display = 'inline-block';
-  document.getElementById('progressArea').style.display = 'block';
-  document.getElementById('batchResult').innerHTML = '';
-
-  const total = csvCompanies.length;
-  let done = 0;
-
-  for (const name of csvCompanies) {
-    if (stopRequested) break;
-    document.getElementById('progressLabel').textContent = `Processing: ${name}`;
-    document.getElementById('batchStatus').innerHTML = `<span class="spinner"></span>[${done+1}/${total}] ${name}…`;
-
-    let row = { inputName: name, matchedName: '', companyNumber: '', status: '', classification: 'Not Found', pscCount: 0, pscNames: '' };
-
-    try {
-      const resp = await fetch('/api/search?q=' + encodeURIComponent(name));
-      if (resp.ok) {
-        const data = await resp.json();
-        row = {
-          inputName: name,
-          matchedName: data.company.title,
-          companyNumber: data.company.company_number,
-          status: data.company.company_status,
-          classification: data.classification,
-          pscCount: data.psc_count,
-          pscNames: data.pscs.map(p => p.name).join('; ')
-        };
-      }
-    } catch(e) { row.classification = 'Error'; }
-
-    allBatchResults.push(row);
-    done++;
-    const pct = Math.round((done / total) * 100);
-    document.getElementById('progressFill').style.width = pct + '%';
-    document.getElementById('progressPct').textContent = pct + '%';
+async function doBatchSearch(){
+  if(!csvCompanies.length)return;
+  stopRequested=false;allBatchResults=[];currentFilter='all';
+  document.getElementById('runBatchBtn').disabled=true;
+  document.getElementById('stopBtn').style.display='inline-block';
+  document.getElementById('progressArea').style.display='block';
+  document.getElementById('batchResult').innerHTML='';
+  const total=csvCompanies.length;let done=0;
+  for(const name of csvCompanies){
+    if(stopRequested)break;
+    document.getElementById('progressLabel').textContent='Processing: '+name;
+    document.getElementById('batchStatus').innerHTML='<span class="spinner"></span>['+( done+1)+'/'+total+'] '+name+'...';
+    let row={inputName:name,matchedName:'',companyNumber:'',status:'',classification:'Not Found',pscCount:0,pscNames:''};
+    try{
+      const resp=await fetch('/api/search?q='+encodeURIComponent(name));
+      if(resp.ok){const data=await resp.json();row={inputName:name,matchedName:data.company.title,companyNumber:data.company.company_number,status:data.company.company_status,classification:data.classification,pscCount:data.psc_count,pscNames:data.pscs.map(p=>p.name).join('; ')};}
+    }catch(e){row.classification='Error';}
+    allBatchResults.push(row);done++;
+    const pct=Math.round((done/total)*100);
+    document.getElementById('progressFill').style.width=pct+'%';
+    document.getElementById('progressPct').textContent=pct+'%';
     renderBatchResults();
     await sleep(300);
   }
-
-  document.getElementById('batchStatus').innerHTML = stopRequested
-    ? `Stopped at ${done}/${total}.`
-    : `✓ Complete — ${total} companies processed.`;
-  document.getElementById('runBatchBtn').disabled = false;
-  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('batchStatus').innerHTML=stopRequested?'Stopped at '+done+'/'+total+'.':'&#10003; Complete &mdash; '+total+' companies processed.';
+  document.getElementById('runBatchBtn').disabled=false;
+  document.getElementById('stopBtn').style.display='none';
 }
 
-function stopBatch() { stopRequested = true; }
+function stopBatch(){stopRequested=true;}
 
-function renderBatchResults() {
-  const results = allBatchResults;
-  if (!results.length) return;
-  const counts = {};
-  results.forEach(r => { counts[r.classification] = (counts[r.classification]||0)+1; });
-  const filtered = currentFilter==='all' ? results : results.filter(r => r.classification===currentFilter);
-
-  const rows = filtered.map(r => `<tr>
-    <td style="max-width:200px">${r.inputName}</td>
-    <td style="color:var(--text-dim);font-size:0.72rem;max-width:180px">${r.matchedName||'—'}</td>
-    <td style="color:var(--text-dim);font-size:0.72rem">${r.companyNumber ? `<a class="ch-link" href="https://find-and-update.company-information.service.gov.uk/company/${r.companyNumber}/persons-with-significant-control" target="_blank">${r.companyNumber} ↗</a>` : '—'}</td>
-    <td><span class="${badgeClass(r.classification)}">${r.classification}</span></td>
-    <td style="color:var(--text-dim)">${r.pscCount||'—'}</td>
-  </tr>`).join('');
-
-  document.getElementById('batchResult').innerHTML = `
-    <div class="summary-cards">
-      <div class="summary-card total"><div class="number">${results.length}</div><div class="label">Total</div></div>
-      <div class="summary-card corporate"><div class="number">${counts.Corporate||0}</div><div class="label">Corporate</div></div>
-      <div class="summary-card individual"><div class="number">${counts.Individual||0}</div><div class="label">Individual</div></div>
-      <div class="summary-card mixed"><div class="number">${counts.Mixed||0}</div><div class="label">Mixed</div></div>
-      <div class="summary-card notfound"><div class="number">${(counts['Not Found']||0)+(counts.Error||0)+(counts.None||0)}</div><div class="label">Other</div></div>
-    </div>
-    <div class="filter-row">
-      <span style="font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;margin-right:4px;">Filter:</span>
-      ${['all','Corporate','Individual','Mixed','None','Not Found'].map(f =>
-        `<button class="filter-btn ${currentFilter===f?'active':''}" onclick="setFilter('${f}')">${f==='all'?'All':f}</button>`
-      ).join('')}
-    </div>
-    <div class="export-row">
-      <button class="btn btn-secondary" onclick="exportCSV()" style="font-size:0.65rem;padding:8px 16px;">Export CSV ↓</button>
-    </div>
-    <div class="results-table-wrap">
-      <table>
-        <thead><tr><th>Input Name</th><th>Matched Name</th><th>CH Number</th><th>PSC Type</th><th>PSC Count</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+function renderBatchResults(){
+  const results=allBatchResults;if(!results.length)return;
+  const counts={};results.forEach(r=>{counts[r.classification]=(counts[r.classification]||0)+1;});
+  const filtered=currentFilter==='all'?results:results.filter(r=>r.classification===currentFilter);
+  const rows=filtered.map(r=>'<tr><td style="max-width:200px;font-weight:500">'+r.inputName+'</td><td style="color:var(--text-dim);font-size:0.72rem">'+( r.matchedName||'&mdash;')+'</td><td style="font-size:0.72rem">'+(r.companyNumber?'<a class="ch-link" href="https://find-and-update.company-information.service.gov.uk/company/'+r.companyNumber+'/persons-with-significant-control" target="_blank">'+r.companyNumber+'</a>':'&mdash;')+'</td><td><span class="'+badgeClass(r.classification)+'">'+r.classification+'</span></td><td style="color:var(--text-dim)">'+(r.pscCount||'&mdash;')+'</td></tr>').join('');
+  document.getElementById('batchResult').innerHTML='<div class="summary-cards"><div class="summary-card total"><div class="number">'+results.length+'</div><div class="label">Total</div></div><div class="summary-card corporate"><div class="number">'+(counts.Corporate||0)+'</div><div class="label">Corporate</div></div><div class="summary-card individual"><div class="number">'+(counts.Individual||0)+'</div><div class="label">Individual</div></div><div class="summary-card mixed"><div class="number">'+(counts.Mixed||0)+'</div><div class="label">Mixed</div></div><div class="summary-card notfound"><div class="number">'+((counts['Not Found']||0)+(counts.Error||0)+(counts.None||0))+'</div><div class="label">Other</div></div></div><div class="filter-row"><span style="font-size:0.65rem;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;margin-right:4px;">Filter:</span>'+['all','Corporate','Individual','Mixed','None','Not Found'].map(f=>'<button class="filter-btn '+(currentFilter===f?'active':'')+'" onclick="setFilter(\''+f+'\')">'+( f==='all'?'All':f)+'</button>').join('')+'</div><div class="export-row"><button class="btn btn-secondary" onclick="exportCSV()" style="font-size:0.65rem;padding:8px 16px;">Export CSV</button></div><div class="results-table-wrap"><table><thead><tr><th>Input Name</th><th>Matched Name</th><th>CH Number</th><th>PSC Type</th><th>PSC Count</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-function setFilter(f) { currentFilter = f; renderBatchResults(); }
+function setFilter(f){currentFilter=f;renderBatchResults();}
 
-function exportCSV() {
-  const headers = ['Input Name','Matched Name','Company Number','Status','PSC Classification','PSC Count','PSC Names'];
-  const rows = allBatchResults.map(r => [r.inputName,r.matchedName,r.companyNumber,r.status,r.classification,r.pscCount,r.pscNames].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
-  const csv = [headers.join(','),...rows].join('\n');
-  const blob = new Blob([csv],{type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'psc_results.csv';
-  a.click();
+function exportCSV(){
+  const headers=['Input Name','Matched Name','Company Number','Status','PSC Classification','PSC Count','PSC Names'];
+  const rows=allBatchResults.map(r=>[r.inputName,r.matchedName,r.companyNumber,r.status,r.classification,r.pscCount,r.pscNames].map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(','));
+  const csv=[headers.join(','),...rows].join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='psc_results.csv';a.click();
 }
 </script>
 </body>
